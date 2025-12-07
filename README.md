@@ -40,5 +40,11 @@ https://github.com/MHMIZAN09/Vehicle-Rental-System
 cd Vehicle-Rental-System
 
 npm install
+
+CONNECTION_STRING=postgresql://neondb_owner:npg_mr2l7biqtZSn@ep-floral-fire-a89jhgyo-pooler.eastus2.azure.neon.tech/neondb?sslmode=require&channel_binding=require
+PORT = 5000
+
+JWT_SECRET=f3b4d7e2f1a4c3b5e6d7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9
+
 ```
 
