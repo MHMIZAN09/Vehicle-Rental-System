@@ -209,8 +209,6 @@ const getAllBookings = async (req: Request, res: Response) => {
         if (customerRes.rows.length > 0) {
           const c = customerRes.rows[0];
           customerData = {
-            id: c.id,
-            name: c.name,
             email: c.email,
             phone: c.phone,
           };
@@ -225,10 +223,8 @@ const getAllBookings = async (req: Request, res: Response) => {
         if (vehicleRes.rows.length > 0) {
           const v = vehicleRes.rows[0];
           vehicleData = {
-            id: v.id,
             vehicle_name: v.vehicle_name,
             registration_number: v.registration_number,
-            daily_rent_price: Number(v.daily_rent_price),
             type: v.type,
           };
         }
