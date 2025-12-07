@@ -1,56 +1,13 @@
-import { Request, Response } from 'express';
+import e, { Request, Response } from 'express';
 import { userService } from './user.service';
-
-enum UserRole {
-  ADMIN = 'admin',
-  CUSTOMER = 'customer',
-}
-
-const createUser = async (req: Request, res: Response) => {
-  const { name, email, password, phone, role } = req.body;
-  try {
-    // check email lower case
-    const emailLower = email.toLowerCase();
-
-    // password length check
-    if (password.length < 6) {
-      return res.status(400).json({
-        success: false,
-        message: 'Password must be at least 6 characters long',
-      });
-    }
-    // role check
-    const roleOptions = Object.values(UserRole);
-    console.log(roleOptions);
-    if (!roleOptions.includes(role)) {
-      return res.status(400).json({
-        success: false,
-        message: `Role must be one of the following: ${roleOptions.join(', ')}`,
-      });
-    }
-
-    const result = await userService.createUser({
-      name,
-      email: emailLower,
-      password,
-      phone,
-      role,
-    });
-    res.status(201).json({
-      success: true,
-      message: 'User created successfully',
-      data: result.rows[0],
-    });
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
+import { bookService } from '../bookings/book.service';
 
 const getUsers = async (req: Request, res: Response) => {
   try {
+    if (req.user?.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+
     const result = await userService.getUsers();
     res.status(200).json({
       success: true,
@@ -58,22 +15,19 @@ const getUsers = async (req: Request, res: Response) => {
       data: result.rows,
     });
   } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
 const getSingleUser = async (req: Request, res: Response) => {
-  const { id } = req.params;
   try {
-    const result = await userService.getSingleUser(id as string);
+    const { userId } = req.params;
+    const result = await userService.getSingleUser(userId!);
+
     if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found',
-      });
+      return res
+        .status(404)
+        .json({ success: false, message: 'User not found' });
     }
     res.status(200).json({
       success: true,
@@ -84,22 +38,28 @@ const getSingleUser = async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       message: error.message,
+      error: error,
     });
   }
 };
 
 const updateUser = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const { userId } = req.params;
     const { name, email, phone, role } = req.body;
-    const result = await userService.updateUser(id!, name, email, phone, role);
+    console.log(typeof req.user?.id);
+    // Admin: Update any user's role or details
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found',
-      });
+    if (req.user?.role !== 'admin' && req.user?.id !== userId) {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
     }
+    const result = await userService.updateUser(
+      userId!,
+      name,
+      email,
+      phone,
+      role
+    );
     res.status(200).json({
       success: true,
       message: 'User updated successfully',
@@ -115,30 +75,40 @@ const updateUser = async (req: Request, res: Response) => {
 
 const deleteUser = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const { userId } = req.params;
 
-    const result = await userService.deleteUser(id!);
-    if (result.rowCount === 0) {
-      return res.status(404).json({
+    if (req.user?.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+
+    const user = await userService.getSingleUser(userId!);
+    if (!user || user.rows.length === 0) {
+      return res
+        .status(404)
+        .json({ success: false, message: 'User not found' });
+    }
+
+    const activeBookings = await bookService.getActiveBookingsByUser(userId!);
+    if (activeBookings.rows.length > 0) {
+      return res.status(400).json({
         success: false,
-        message: 'User not found',
+        message: 'Cannot delete user with active bookings',
       });
     }
+
+    const result = await userService.deleteUser(userId!);
+
     res.status(200).json({
       success: true,
       message: 'User deleted successfully',
       data: result.rows,
     });
   } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
 export const userController = {
-  createUser,
   getUsers,
   getSingleUser,
   updateUser,

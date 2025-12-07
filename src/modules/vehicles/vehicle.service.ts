@@ -1,14 +1,12 @@
 import { pool } from '../../config/db';
 
-const createVehicle = async (payload: Record<string, unknown>) => {
-  const {
-    vehicle_name,
-    type,
-    registration_number,
-    daily_rent_price,
-    availability_status,
-  } = payload;
-
+const createVehicle = async (
+  vehicle_name: string,
+  type: string,
+  registration_number: string,
+  daily_rent_price: number,
+  availability_status: string
+) => {
   const result = await pool.query(
     `
     INSERT INTO vehicles (vehicle_name, type, registration_number, daily_rent_price, availability_status)
@@ -60,6 +58,19 @@ const updateVehicle = async (
   return result;
 };
 
+const updateVehicleAvailability = async (
+  id: string,
+  availability_status: string
+) => {
+  const result = await pool.query(
+    `
+    UPDATE vehicles SET availability_status=$1 WHERE id = $2 RETURNING *
+    `,
+    [availability_status, id]
+  );
+  return result;
+};
+
 const deleteVehicle = async (id: string) => {
   const result = await pool.query(
     `DELETE FROM vehicles WHERE id = $1 RETURNING *`,
@@ -73,5 +84,6 @@ export const vehicleService = {
   getVehicle,
   getSingleVehicle,
   updateVehicle,
+  updateVehicleAvailability,
   deleteVehicle,
 };

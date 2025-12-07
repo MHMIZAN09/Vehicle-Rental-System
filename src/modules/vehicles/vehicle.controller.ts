@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { vehicleService } from './vehicle.service';
+import { bookService } from '../bookings/book.service';
 
 enum VehicleType {
   CAR = 'car',
@@ -48,13 +49,13 @@ const createVehicle = async (req: Request, res: Response) => {
       });
     }
 
-    const result = await vehicleService.createVehicle({
+    const result = await vehicleService.createVehicle(
       vehicle_name,
       type,
       registration_number,
       daily_rent_price,
-      availability_status,
-    });
+      availability_status
+    );
     res.status(201).json({
       success: true,
       message: 'Vehicle created successfully',
@@ -86,8 +87,8 @@ const getVehicle = async (req: Request, res: Response) => {
 
 const getSingleVehicle = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-    const result = await vehicleService.getSingleVehicle(id!);
+    const { vehicleId } = req.params;
+    const result = await vehicleService.getSingleVehicle(vehicleId as string);
     if (result.rows.length === 0) {
       return res.status(404).json({
         success: false,
@@ -108,7 +109,7 @@ const getSingleVehicle = async (req: Request, res: Response) => {
 
 const updateVehicle = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const { vehicleId } = req.params;
     const {
       vehicle_name,
       type,
@@ -118,14 +119,14 @@ const updateVehicle = async (req: Request, res: Response) => {
     } = req.body;
 
     const result = await vehicleService.updateVehicle(
+      vehicleId!,
       vehicle_name,
       type,
       registration_number,
       daily_rent_price,
-      availability_status,
-      id!
+      availability_status
     );
-    if (result.rowCount === 0) {
+    if (result.rows.length === 0) {
       return res.status(404).json({
         success: false,
         message: 'Vehicle not found',
@@ -146,27 +147,47 @@ const updateVehicle = async (req: Request, res: Response) => {
 
 const deleteVehicle = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-    const result = await vehicleService.deleteVehicle(id!);
-    if (result.rowCount === 0) {
-      return res.status(404).json({
+    const { vehicleId } = req.params;
+    if (req.user?.role !== 'admin') {
+      return res
+        .status(403)
+        .json({ success: false, message: 'Forbidden: Admins only' });
+    }
+
+    // Check if vehicle exists
+    const vehicle = await vehicleService.getSingleVehicle(vehicleId!);
+    if (!vehicle || vehicle.rows.length === 0) {
+      return res
+        .status(404)
+        .json({ success: false, message: 'Vehicle not found' });
+    }
+
+    const activeBookings = await bookService.getActiveBookingsByVehicle(
+      vehicleId!
+    );
+    if (activeBookings.rows.length > 0) {
+      return res.status(400).json({
         success: false,
-        message: 'Vehicle not found',
+        message: 'Cannot delete vehicle with active bookings',
       });
     }
+
+    const result = await vehicleService.deleteVehicle(vehicleId!);
+
     res.status(200).json({
       success: true,
       message: 'Vehicle deleted successfully',
-      data: result.rows[0],
+      data: result.rows,
     });
   } catch (error: any) {
+    console.error('DeleteVehicle Error:', error);
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: 'Internal Server Error',
+      error: error.message,
     });
   }
 };
-
 export const vehicleController = {
   createVehicle,
   getVehicle,
